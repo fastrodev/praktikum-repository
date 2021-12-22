@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -34,18 +33,9 @@ func (r *repository) createBook(book Book) (*mongo.InsertOneResult, error) {
 	return r.coll.InsertOne(context.TODO(), book)
 }
 
-func (r *repository) readBook(id interface{}) ([]byte, error) {
-	var result bson.M
+func (r *repository) readBook(id interface{}) *mongo.SingleResult {
 	filter := bson.M{"_id": id}
-	err := r.coll.FindOne(context.TODO(), filter).Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-	jsonData, err := json.MarshalIndent(result, "", "    ")
-	if err != nil {
-		return nil, err
-	}
-	return jsonData, nil
+	return r.coll.FindOne(context.TODO(), filter)
 }
 
 func (r *repository) updateBook(id interface{}, book Book) (*mongo.UpdateResult, error) {
@@ -75,11 +65,11 @@ func main() {
 	}
 	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
 
-	jsonData, err := repo.readBook(result.InsertedID)
+	book := repo.readBook(result.InsertedID)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%s\n", jsonData)
+	fmt.Printf("%v\n", book)
 
 	updateResult, err := repo.updateBook(result.InsertedID, Book{
 		Title:  "Bumi manusia",
@@ -92,11 +82,8 @@ func main() {
 	fmt.Printf("Documents matched: %v\n", updateResult.MatchedCount)
 	fmt.Printf("Documents updated: %v\n", updateResult.ModifiedCount)
 
-	jsonData, err = repo.readBook(result.InsertedID)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%s\n", jsonData)
+	book = repo.readBook(result.InsertedID)
+	fmt.Printf("%v\n", book)
 
 	deleteResult, err := repo.deleteBook(result.InsertedID)
 	if err != nil {
