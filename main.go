@@ -33,9 +33,26 @@ func (r *repository) createBook(book Book) (*mongo.InsertOneResult, error) {
 	return r.coll.InsertOne(context.TODO(), book)
 }
 
-func (r *repository) readBook(id interface{}) *mongo.SingleResult {
+func (r *repository) readBook(id interface{}) (*Book, error) {
 	filter := bson.M{"_id": id}
-	return r.coll.FindOne(context.TODO(), filter)
+	var result bson.D
+	err := r.coll.FindOne(context.TODO(), filter).Decode(&result)
+	if err != nil {
+		return &Book{}, nil
+	}
+
+	docByte, err := bson.Marshal(result)
+	if err != nil {
+		return &Book{}, nil
+	}
+
+	var book Book
+	err = bson.Unmarshal(docByte, &book)
+	if err != nil {
+		return &Book{}, nil
+	}
+
+	return &book, nil
 }
 
 func (r *repository) updateBook(id interface{}, book Book) (*mongo.UpdateResult, error) {
@@ -65,7 +82,7 @@ func main() {
 	}
 	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
 
-	book := repo.readBook(result.InsertedID)
+	book, err := repo.readBook(result.InsertedID)
 	if err != nil {
 		panic(err)
 	}
@@ -82,7 +99,10 @@ func main() {
 	fmt.Printf("Documents matched: %v\n", updateResult.MatchedCount)
 	fmt.Printf("Documents updated: %v\n", updateResult.ModifiedCount)
 
-	book = repo.readBook(result.InsertedID)
+	book, err = repo.readBook(result.InsertedID)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("%v\n", book)
 
 	deleteResult, err := repo.deleteBook(result.InsertedID)
