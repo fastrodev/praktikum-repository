@@ -29,8 +29,14 @@ type repository struct {
 	coll *mongo.Collection
 }
 
-func (r *repository) createBook(book Book) (*mongo.InsertOneResult, error) {
-	return r.coll.InsertOne(context.TODO(), book)
+func (r *repository) createBook(book Book) (*Book, error) {
+	res, err := r.coll.InsertOne(context.TODO(), book)
+	if err != nil {
+		return nil, err
+	}
+
+	book.ID = res.InsertedID.(primitive.ObjectID)
+	return &book, nil
 }
 
 func (r *repository) readBook(id interface{}) (*Book, error) {
@@ -80,15 +86,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Inserted document with _id: %v\n", result.InsertedID)
+	fmt.Printf("Inserted document with _id: %v\n", result.ID)
 
-	book, err := repo.readBook(result.InsertedID)
+	book, err := repo.readBook(result.ID)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%v\n", book)
+	fmt.Printf("%v\n", *book)
 
-	updateResult, err := repo.updateBook(result.InsertedID, Book{
+	updateResult, err := repo.updateBook(result.ID, Book{
 		Title:  "Bumi manusia",
 		Author: "Pramoedya Ananta Toer",
 		Year:   1980,
@@ -99,13 +105,13 @@ func main() {
 	fmt.Printf("Documents matched: %v\n", updateResult.MatchedCount)
 	fmt.Printf("Documents updated: %v\n", updateResult.ModifiedCount)
 
-	book, err = repo.readBook(result.InsertedID)
+	book, err = repo.readBook(result.ID)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%v\n", book)
+	fmt.Printf("%v\n", *book)
 
-	deleteResult, err := repo.deleteBook(result.InsertedID)
+	deleteResult, err := repo.deleteBook(result.ID)
 	if err != nil {
 		panic(err)
 	}
