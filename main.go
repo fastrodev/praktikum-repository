@@ -61,10 +61,15 @@ func (r *repository) readBook(id interface{}) (*Book, error) {
 	return &book, nil
 }
 
-func (r *repository) updateBook(id interface{}, book Book) (*mongo.UpdateResult, error) {
+func (r *repository) updateBook(id interface{}, book Book) (*Book, error) {
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": book}
-	return r.coll.UpdateOne(context.TODO(), filter, update)
+	_, err := r.coll.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+
+	return &book, nil
 }
 
 func (r *repository) deleteBook(id interface{}) (*mongo.DeleteResult, error) {
@@ -102,8 +107,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Documents matched: %v\n", updateResult.MatchedCount)
-	fmt.Printf("Documents updated: %v\n", updateResult.ModifiedCount)
+	fmt.Printf("Documents updated: %v\n", updateResult)
 
 	book, err = repo.readBook(result.ID)
 	if err != nil {
