@@ -38,18 +38,18 @@ func (r *repository) readBook(id interface{}) (*Book, error) {
 	var result bson.D
 	err := r.coll.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
-		return &Book{}, nil
+		return nil, err
 	}
 
 	docByte, err := bson.Marshal(result)
 	if err != nil {
-		return &Book{}, nil
+		return nil, err
 	}
 
 	var book Book
 	err = bson.Unmarshal(docByte, &book)
 	if err != nil {
-		return &Book{}, nil
+		return nil, err
 	}
 
 	return &book, nil
