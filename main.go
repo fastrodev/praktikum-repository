@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -17,20 +18,34 @@ type Book struct {
 	Year   int                `bson:"year_published,omitempty"`
 }
 
-func createBookRepository(uri, db, col string) *repository {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
+func createBookRepository(
+	ctx context.Context,
+	timeout time.Duration,
+	uri, db, col string,
+) *repository {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		panic(err)
 	}
-	return &repository{coll: client.Database(db).Collection(col)}
+	return &repository{
+		coll:    client.Database(db).Collection(col),
+		timeout: timeout,
+	}
 }
 
 type repository struct {
-	coll *mongo.Collection
+	coll    *mongo.Collection
+	timeout time.Duration
 }
 
-func (r *repository) createBook(book Book) (*Book, error) {
-	res, err := r.coll.InsertOne(context.TODO(), book)
+func (r *repository) createBook(ctx context.Context, book Book) (*Book, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+
+	res, err := r.coll.InsertOne(ctx, book)
 	if err != nil {
 		return nil, err
 	}
@@ -39,10 +54,13 @@ func (r *repository) createBook(book Book) (*Book, error) {
 	return &book, nil
 }
 
-func (r *repository) readBook(id interface{}) (*Book, error) {
+func (r *repository) readBook(ctx context.Context, id interface{}) (*Book, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+
 	filter := bson.M{"_id": id}
 	var result bson.D
-	err := r.coll.FindOne(context.TODO(), filter).Decode(&result)
+	err := r.coll.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -61,10 +79,13 @@ func (r *repository) readBook(id interface{}) (*Book, error) {
 	return &book, nil
 }
 
-func (r *repository) updateBook(id interface{}, book Book) (*Book, error) {
+func (r *repository) updateBook(ctx context.Context, id interface{}, book Book) (*Book, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": book}
-	_, err := r.coll.UpdateOne(context.TODO(), filter, update)
+	_, err := r.coll.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return nil, err
 	}
@@ -72,50 +93,62 @@ func (r *repository) updateBook(id interface{}, book Book) (*Book, error) {
 	return &book, nil
 }
 
-func (r *repository) deleteBook(id interface{}) (*mongo.DeleteResult, error) {
+func (r *repository) deleteBook(ctx context.Context, id interface{}) (*mongo.DeleteResult, error) {
+	ctx, cancel := context.WithTimeout(ctx, r.timeout)
+	defer cancel()
+
 	filter := bson.M{"_id": id}
-	return r.coll.DeleteMany(context.TODO(), filter)
+	return r.coll.DeleteMany(ctx, filter)
 }
 
 func main() {
 	uri := "mongodb+srv://admin:admin@cluster0.xtwwu.mongodb.net"
 	database := "myDB"
 	collection := "favorite_books"
-	repo := createBookRepository(uri, database, collection)
+	ctx := context.Background()
+	timeout := 10 * time.Second
+	repo := createBookRepository(ctx, timeout, uri, database, collection)
 
-	result, err := repo.createBook(Book{
-		Title:  "Invisible Cities",
-		Author: "Italo Calvino",
-		Year:   1974,
-	})
+	result, err := repo.createBook(
+		ctx,
+		Book{
+			Title:  "Invisible Cities",
+			Author: "Italo Calvino",
+			Year:   1974,
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Inserted document with _id: %v\n", result.ID)
 
-	book, err := repo.readBook(result.ID)
+	book, err := repo.readBook(ctx, result.ID)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("%v\n", *book)
 
-	updateResult, err := repo.updateBook(result.ID, Book{
-		Title:  "Bumi manusia",
-		Author: "Pramoedya Ananta Toer",
-		Year:   1980,
-	})
+	updateResult, err := repo.updateBook(
+		ctx,
+		result.ID,
+		Book{
+			Title:  "Bumi manusia",
+			Author: "Pramoedya Ananta Toer",
+			Year:   1980,
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Documents updated: %v\n", updateResult)
 
-	book, err = repo.readBook(result.ID)
+	book, err = repo.readBook(ctx, result.ID)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("%v\n", *book)
 
-	deleteResult, err := repo.deleteBook(result.ID)
+	deleteResult, err := repo.deleteBook(ctx, result.ID)
 	if err != nil {
 		panic(err)
 	}
