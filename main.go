@@ -22,31 +22,31 @@ func createBookRepository(uri, db, col string) *repository {
 	if err != nil {
 		panic(err)
 	}
-	return &repository{coll: client.Database(db).Collection(col)}
+	return &repository{collection: client.Database(db).Collection(col)}
 }
 
 type repository struct {
-	coll *mongo.Collection
+	collection *mongo.Collection
 }
 
 func (r *repository) createBook(book Book) (*mongo.InsertOneResult, error) {
-	return r.coll.InsertOne(context.TODO(), book)
+	return r.collection.InsertOne(context.TODO(), book)
 }
 
 func (r *repository) readBook(id interface{}) *mongo.SingleResult {
 	filter := bson.M{"_id": id}
-	return r.coll.FindOne(context.TODO(), filter)
+	return r.collection.FindOne(context.TODO(), filter)
 }
 
 func (r *repository) updateBook(id interface{}, book Book) (*mongo.UpdateResult, error) {
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": book}
-	return r.coll.UpdateOne(context.TODO(), filter, update)
+	return r.collection.UpdateOne(context.TODO(), filter, update)
 }
 
 func (r *repository) deleteBook(id interface{}) (*mongo.DeleteResult, error) {
 	filter := bson.M{"_id": id}
-	return r.coll.DeleteMany(context.TODO(), filter)
+	return r.collection.DeleteMany(context.TODO(), filter)
 }
 
 func main() {
