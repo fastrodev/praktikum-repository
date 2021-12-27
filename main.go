@@ -22,15 +22,15 @@ func createBookRepository(uri, db, col string) *repository {
 	if err != nil {
 		panic(err)
 	}
-	return &repository{coll: client.Database(db).Collection(col)}
+	return &repository{collection: client.Database(db).Collection(col)}
 }
 
 type repository struct {
-	coll *mongo.Collection
+	collection *mongo.Collection
 }
 
 func (r *repository) createBook(book Book) (*Book, error) {
-	res, err := r.coll.InsertOne(context.TODO(), book)
+	res, err := r.collection.InsertOne(context.TODO(), book)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (r *repository) createBook(book Book) (*Book, error) {
 func (r *repository) readBook(id interface{}) (*Book, error) {
 	filter := bson.M{"_id": id}
 	var result bson.D
-	err := r.coll.FindOne(context.TODO(), filter).Decode(&result)
+	err := r.collection.FindOne(context.TODO(), filter).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (r *repository) readBook(id interface{}) (*Book, error) {
 func (r *repository) updateBook(id interface{}, book Book) (*Book, error) {
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": book}
-	_, err := r.coll.UpdateOne(context.TODO(), filter, update)
+	_, err := r.collection.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (r *repository) updateBook(id interface{}, book Book) (*Book, error) {
 
 func (r *repository) deleteBook(id interface{}) (*mongo.DeleteResult, error) {
 	filter := bson.M{"_id": id}
-	return r.coll.DeleteMany(context.TODO(), filter)
+	return r.collection.DeleteMany(context.TODO(), filter)
 }
 
 func main() {
