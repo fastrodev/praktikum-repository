@@ -19,33 +19,40 @@ type Book struct {
 }
 
 func createBookRepository(
+	collection *mongo.Collection,
+	timeout time.Duration,
+) *repository {
+	return &repository{
+		collection: collection,
+		timeout:    timeout,
+	}
+}
+
+func createCollection(
 	ctx context.Context,
 	timeout time.Duration,
 	uri, db, col string,
-) *repository {
+) (*mongo.Collection, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return &repository{
-		coll:    client.Database(db).Collection(col),
-		timeout: timeout,
-	}
+	return client.Database(db).Collection(col), nil
 }
 
 type repository struct {
-	coll    *mongo.Collection
-	timeout time.Duration
+	collection *mongo.Collection
+	timeout    time.Duration
 }
 
 func (r *repository) createBook(ctx context.Context, book Book) (*Book, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	res, err := r.coll.InsertOne(ctx, book)
+	res, err := r.collection.InsertOne(ctx, book)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +67,7 @@ func (r *repository) readBook(ctx context.Context, id interface{}) (*Book, error
 
 	filter := bson.M{"_id": id}
 	var result bson.D
-	err := r.coll.FindOne(ctx, filter).Decode(&result)
+	err := r.collection.FindOne(ctx, filter).Decode(&result)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +92,7 @@ func (r *repository) updateBook(ctx context.Context, id interface{}, book Book) 
 
 	filter := bson.M{"_id": id}
 	update := bson.M{"$set": book}
-	_, err := r.coll.UpdateOne(ctx, filter, update)
+	_, err := r.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return nil, err
 	}
@@ -98,16 +105,20 @@ func (r *repository) deleteBook(ctx context.Context, id interface{}) (*mongo.Del
 	defer cancel()
 
 	filter := bson.M{"_id": id}
-	return r.coll.DeleteMany(ctx, filter)
+	return r.collection.DeleteMany(ctx, filter)
 }
 
 func main() {
 	uri := "mongodb+srv://admin:admin@cluster0.xtwwu.mongodb.net"
 	database := "myDB"
-	collection := "favorite_books"
+	col := "favorite_books"
 	ctx := context.Background()
 	timeout := 10 * time.Second
-	repo := createBookRepository(ctx, timeout, uri, database, collection)
+	collection, err := createCollection(ctx, timeout, uri, database, col)
+	if err != nil {
+		panic(err)
+	}
+	repo := createBookRepository(collection, timeout)
 
 	result, err := repo.createBook(
 		ctx,
