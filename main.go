@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -106,62 +105,4 @@ func (r *repository) deleteBook(ctx context.Context, id interface{}) (*mongo.Del
 
 	filter := bson.M{"_id": id}
 	return r.collection.DeleteMany(ctx, filter)
-}
-
-func main() {
-	uri := "mongodb+srv://admin:admin@cluster0.xtwwu.mongodb.net"
-	database := "myDB"
-	col := "favorite_books"
-	ctx := context.Background()
-	timeout := 10 * time.Second
-	collection, err := createCollection(ctx, timeout, uri, database, col)
-	if err != nil {
-		panic(err)
-	}
-	repo := createBookRepository(collection, timeout)
-
-	result, err := repo.createBook(
-		ctx,
-		Book{
-			Title:  "Invisible Cities",
-			Author: "Italo Calvino",
-			Year:   1974,
-		},
-	)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Inserted document with _id: %v\n", result.ID)
-
-	book, err := repo.readBook(ctx, result.ID)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%v\n", *book)
-
-	updateResult, err := repo.updateBook(
-		ctx,
-		result.ID,
-		Book{
-			Title:  "Bumi manusia",
-			Author: "Pramoedya Ananta Toer",
-			Year:   1980,
-		},
-	)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Documents updated: %v\n", updateResult)
-
-	book, err = repo.readBook(ctx, result.ID)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%v\n", *book)
-
-	deleteResult, err := repo.deleteBook(ctx, result.ID)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Number of documents deleted: %d\n", deleteResult.DeletedCount)
 }
